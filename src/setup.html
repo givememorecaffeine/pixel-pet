@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <title>PixelPet 설정</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { padding: 24px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p.sub { margin: 0 0 20px; color: var(--muted); font-size: 12px; }
+    label { display: block; font-size: 12px; font-weight: 700; margin: 16px 0 6px; }
+    .row { display: flex; gap: 6px; }
+    .row input { flex: 1; }
+    input { width: 100%; }
+    .animals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .animal { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0 8px; border: 2px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; font-size: 12px; }
+    .animal.sel { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+    .err { color: #dc2626; font-size: 12px; min-height: 16px; margin-top: 12px; }
+    button.primary { width: 100%; margin-top: 8px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h1>🐾 PixelPet</h1>
+  <p class="sub">바탕화면에 사는 픽셀 친구와 함께 채팅해요</p>
+
+  <label for="name">내 닉네임</label>
+  <input id="name" maxlength="20" placeholder="예: 채나">
+
+  <label>내 고양이 <span style="font-weight:400;color:var(--muted)">(채팅에서 내 프로필로 보여요)</span></label>
+  <div id="animals" class="animals"></div>
+
+  <div id="firstRoom">
+    <label for="roomName">첫 번째 방 이름 <span style="font-weight:400;color:var(--muted)">(내 화면에서만 보여요)</span></label>
+    <input id="roomName" maxlength="12" placeholder="예: 대학친구">
+
+    <label for="room">방 코드</label>
+    <div class="row">
+      <input id="room" maxlength="40" placeholder="친구에게 받은 코드">
+      <button id="gen" type="button">새 방 만들기</button>
+    </div>
+    <div class="hint">같은 방 코드를 입력한 친구끼리 대화해요.<br>방 코드가 곧 비밀번호라서, 아는 사람만 대화를 볼 수 있어요.<br>방은 나중에 채팅창의 + 버튼으로 더 추가할 수 있어요.</div>
+  </div>
+
+  <div id="err" class="err"></div>
+  <button id="save" class="primary">시작하기</button>
+
+  <script src="sprites.js"></script>
+  <script src="util.js"></script>
+  <script src="setup.js"></script>
+</body>
+</html>
