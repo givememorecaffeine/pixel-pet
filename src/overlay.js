@@ -8,6 +8,9 @@ const PH = window.PixelSprites.HEIGHT * SCALE;
 const LABEL_H = 20;
 const SPEED = 0.045; // px/ms
 const WALK_MS = [4000, 6000]; // 메시지가 오면 이만큼 걷다가 앉는다
+const SLOT = 110; // 고양이 한 칸 폭 (이름표 포함)
+const MARGIN = 24; // 화면 오른쪽 여백
+const ROAM = 120; // 메시지가 왔을 때 자기 자리에서 이만큼까지만 걷는다
 const ALERT = '메시지가 왔다냥';
 
 const pets = new Map();
@@ -29,20 +32,25 @@ resize();
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
+// 화면 오른쪽 아래부터 만든 순서대로 앉힌다. 첫 번째 방이 가장 오른쪽, 새 방은 그 왼쪽으로.
+const homeX = (p) => W - MARGIN - (p.slot + 1) * SLOT + (SLOT - PW) / 2;
+
 function syncRooms(rooms) {
   const codes = new Set(rooms.map((r) => r.code));
   for (const code of pets.keys()) if (!codes.has(code)) pets.delete(code);
-  for (const r of rooms) {
+  rooms.forEach((r, i) => {
     let p = pets.get(r.code);
     if (!p) {
-      p = { id: r.code, x: rand(0, Math.max(0, W - PW)), dir: Math.random() < 0.5 ? -1 : 1, state: 'idle', until: 0, jumpAt: 0, bubble: null };
+      p = { id: r.code, dir: -1, state: 'idle', until: 0, jumpAt: 0, bubble: null };
       pets.set(r.code, p);
     }
+    p.slot = i;
     p.name = r.name;
     p.animal = r.cat;
     p.unread = r.unread;
     if (!r.unread) p.bubble = null; // 그 방을 열어 읽으면 알림도 사라진다
-  }
+  });
+  for (const p of pets.values()) if (p.x === undefined) p.x = homeX(p);
 }
 
 // 평소에는 앉아 있고 가끔 존다. 걷는 건 메시지가 왔을 때만.
@@ -155,13 +163,15 @@ function drawLabel(p, y) {
   ctx.textAlign = 'left';
 }
 
-// 안 읽은 메시지가 있으면 고양이 머리 위에 빨간 점 + 개수
-function drawUnread(p, top) {
+// 안 읽은 메시지가 있으면 고양이 오른쪽 귀 옆에 빨간 숫자
+// 앉은 모습은 16칸 그림이 20칸 안에 가운데 정렬돼 있어서 귀 위치가 걷는 모습과 다르다
+function drawUnread(p, top, walking) {
   const n = p.unread > 99 ? '99+' : String(p.unread);
   ctx.font = 'bold 10px Pretendard, -apple-system, sans-serif';
   const w = Math.max(16, ctx.measureText(n).width + 8);
-  const x = p.x + PW - w + 2;
-  const y = top - 4;
+  const earX = walking ? (p.dir < 0 ? p.x + 1 * SCALE : p.x + 19 * SCALE) : p.x + 2 * SCALE + 11 * SCALE;
+  const x = earX - w / 2 + 4;
+  const y = top;
   ctx.fillStyle = '#ff3b30';
   roundRect(x, y, w, 16, 8);
   ctx.fill();
@@ -174,42 +184,75 @@ function drawUnread(p, top) {
 }
 
 let last = performance.now();
+function update(p, now, dt) {
+  const home = homeX(p);
+  // 다 걸었으면 자기 자리로 돌아가서 앉는다 (방이 늘거나 화면 크기가 바뀌어도 자리로 이동)
+  if (now > p.until) {
+    if (Math.abs(p.x - home) > 2) {
+      p.state = 'return';
+      p.walkFrom = 0;
+    } else {
+      p.x = home;
+      nextState(p, now);
+    }
+  }
+  p.walking = (p.state === 'walk' || p.state === 'return') && now >= p.walkFrom;
+  if (p.state === 'walk' && p.walking) {
+    p.x += p.dir * SPEED * dt;
+    const lo = Math.max(0, home - ROAM);
+    const hi = Math.min(W - PW, home + ROAM);
+    if (p.x < lo) { p.x = lo; p.dir = 1; }
+    if (p.x > hi) { p.x = hi; p.dir = -1; }
+  } else if (p.state === 'return') {
+    const d = home - p.x;
+    p.dir = Math.sign(d) || p.dir;
+    p.x += Math.sign(d) * Math.min(Math.abs(d), SPEED * dt);
+    if (Math.abs(home - p.x) <= 2) {
+      p.x = home;
+      p.walking = false;
+      nextState(p, now);
+    }
+  }
+}
+
+function draw(p, now, ground, hideLabel) {
+  // 메시지가 오면 폴짝폴짝 두 번
+  let hop = 0;
+  const jt = now - p.jumpAt;
+  if (jt < 700) hop = Math.abs(Math.sin((jt / 700) * Math.PI * 2)) * 18;
+
+  const pose = p.walking ? (Math.floor(now / 160) % 2 ? 'walkB' : 'walkA') : 'sit';
+  const top = ground - PH - hop;
+  p.box = { x: p.x, y: ground - PH - 18, w: PW, h: PH + 18 + LABEL_H };
+  drawPet(ctx, p.animal, pose, p.x, top, SCALE, p.walking && p.dir < 0);
+  if (!hideLabel) drawLabel(p, ground + 2);
+
+  if (p.state === 'sleep' && !p.bubble) {
+    ctx.font = 'bold 14px monospace';
+    ctx.fillStyle = '#6b7280';
+    const z = Math.floor(now / 500) % 3;
+    ctx.fillText('z'.repeat(z + 1), p.x + PW - 14, top + 6);
+  }
+  if (p.unread) drawUnread(p, top, p.walking);
+  if (p.bubble) drawBubble(p, top);
+  else p.bubbleBox = p.closeBox = null;
+}
+
+// 걷는 고양이와 겹치면 뒤에 앉은 고양이의 이름표는 잠깐 숨긴다
+const overlapsWalker = (p, walkers) => walkers.some((w) => w !== p && Math.abs(w.x - p.x) < PW);
+
 function frame(now) {
   const dt = Math.min(64, now - last);
   last = now;
   ctx.clearRect(0, 0, W, H);
   const ground = H - LABEL_H;
 
-  for (const p of pets.values()) {
-    if (now > p.until) nextState(p, now);
-    const walking = p.state === 'walk' && now >= p.walkFrom;
-    if (walking) {
-      p.x += p.dir * SPEED * dt;
-      if (p.x < 0) { p.x = 0; p.dir = 1; }
-      if (p.x > W - PW) { p.x = W - PW; p.dir = -1; }
-    }
-
-    // 메시지가 오면 폴짝폴짝 두 번
-    let hop = 0;
-    const jt = now - p.jumpAt;
-    if (jt < 700) hop = Math.abs(Math.sin((jt / 700) * Math.PI * 2)) * 18;
-
-    const pose = walking ? (Math.floor(now / 160) % 2 ? 'walkB' : 'walkA') : 'sit';
-    const top = ground - PH - hop;
-    p.box = { x: p.x, y: ground - PH - 18, w: PW, h: PH + 18 + LABEL_H };
-    drawPet(ctx, p.animal, pose, p.x, top, SCALE, p.dir < 0);
-    drawLabel(p, ground + 2);
-
-    if (p.state === 'sleep' && !p.bubble) {
-      ctx.font = 'bold 14px monospace';
-      ctx.fillStyle = '#6b7280';
-      const z = Math.floor(now / 500) % 3;
-      ctx.fillText('z'.repeat(z + 1), p.x + PW - 14, top + 6);
-    }
-    if (p.unread) drawUnread(p, top);
-    if (p.bubble) drawBubble(p, top);
-    else p.bubbleBox = p.closeBox = null;
-  }
+  const all = [...pets.values()];
+  all.forEach((p) => update(p, now, dt));
+  const walkers = all.filter((p) => p.walking);
+  // 앉은 고양이 먼저, 걷는 고양이를 나중에(앞에) 그린다
+  for (const p of all) if (!p.walking) draw(p, now, ground, overlapsWalker(p, walkers));
+  for (const p of walkers) draw(p, now, ground, false);
   requestAnimationFrame(frame);
 }
 
@@ -219,7 +262,9 @@ const inside = (b, x, y) => b && x >= b.x && x <= b.x + b.w && y >= b.y && y <= 
 
 // 고양이·알림 말풍선 위인지. close=true면 x 버튼 위
 function hit(x, y) {
-  for (const p of pets.values()) {
+  // 앞에 그려진 걷는 고양이를 먼저 확인
+  const order = [...pets.values()].sort((a, b) => (b.walking ? 1 : 0) - (a.walking ? 1 : 0));
+  for (const p of order) {
     if (inside(p.closeBox, x, y)) return { p, close: true };
     if (inside(p.box, x, y) || inside(p.bubbleBox, x, y)) return { p, close: false };
   }
