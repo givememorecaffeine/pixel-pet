@@ -1,7 +1,7 @@
 {
   "name": "pixel-pet-chat",
   "productName": "PixelPet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "바탕화면 픽셀 펫 + 친구 채팅",
   "main": "src/main.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "mac": {
       "target": "dmg",
       "category": "public.app-category.social-networking",
-      "identity": null
+      "identity": "-", "hardenedRuntime": false
     },
     "files": [
       "src/**/*",
