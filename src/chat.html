@@ -78,6 +78,7 @@
     .sheet-bg { position: absolute; inset: 40px 0 0; background: rgba(0,0,0,.18); display: none; align-items: flex-end; }
     .sheet-bg.show { display: flex; }
     .sheet { width: 100%; max-height: 100%; overflow-y: auto; background: var(--window); border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; padding: 16px 14px 14px; }
+    .sheet::-webkit-scrollbar { display: none; }
     .sheet h2 { margin: 0 0 12px; font-size: 15px; font-weight: 700; }
     .sheet label { display: block; font-size: 11.5px; font-weight: 700; color: #4a4a4c; margin: 12px 0 6px; }
     .field { display: flex; gap: 6px; }
@@ -93,6 +94,8 @@
     .actions button { flex: 1; height: 36px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .cancel { border: 1px solid var(--line); background: #fff; color: #3a3a3c; }
     .primary { border: 0; background: var(--mine); color: #fff; }
+    .desk { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 36px; margin-top: 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: #3a3a3c; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+    .desk.on { background: #e5e5ea; border-color: #e5e5ea; color: #6b6b70; cursor: default; }
     .leave { display: block; width: 100%; margin-top: 10px; border: 0; background: none; color: var(--red); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 6px; }
   </style>
 </head>
@@ -134,6 +137,7 @@
 
         <label>바탕화면 고양이</label>
         <div id="cats" class="animals"></div>
+        <button id="desk" type="button" class="desk"></button>
 
         <div id="sheetErr" class="err"></div>
         <div class="actions">

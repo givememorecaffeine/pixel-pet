@@ -102,6 +102,8 @@ function openSheet(room) {
   $('codeShow').style.display = room ? 'flex' : 'none';
   $('codeHint').style.display = room ? 'none' : 'block';
   $('leave').style.display = room ? 'block' : 'none';
+  $('desk').style.display = room ? 'flex' : 'none';
+  renderDeskButton(room?.desk);
   $('leave').textContent = '이 방 나가기';
   $('sheetErr').textContent = '';
   // 새 방이면 아직 안 쓴 고양이를 먼저 골라 둔다
@@ -112,6 +114,17 @@ function openSheet(room) {
 }
 
 const closeSheet = () => $('sheetBg').classList.remove('show');
+
+// 바탕화면에는 고른 방 고양이 하나만 보인다
+function renderDeskButton(on) {
+  $('desk').classList.toggle('on', !!on);
+  $('desk').textContent = on ? '✓ 지금 바탕화면에 보이는 고양이예요' : '바탕화면에 이 방 고양이 보이기';
+}
+$('desk').addEventListener('click', () => {
+  if (!editing || $('desk').classList.contains('on')) return;
+  window.api.setDesk(editing.code);
+  renderDeskButton(true);
+});
 
 $('gen').addEventListener('click', () => ($('rCode').value = newRoomCode()));
 $('copy').addEventListener('click', () => {

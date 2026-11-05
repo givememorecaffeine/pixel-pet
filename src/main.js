@@ -16,7 +16,8 @@ const HISTORY_MAX = 200;
 const ROOM_NAME_MAX = 12;
 const preload = path.join(__dirname, 'preload.js');
 
-// config = { id, name, animal, rooms: [{ code, name, cat }], active }
+// config = { id, name, animal, rooms: [{ code, name, cat }], active, desk }
+// active: 채팅창에서 보고 있는 방, desk: 바탕화면에 고양이를 띄울 방
 let config = null;
 let net = null;
 let overlay = null;
@@ -62,7 +63,7 @@ function history(code) {
 }
 
 function roomState() {
-  return config.rooms.map((r) => ({ ...r, members: net ? net.members(r.code) : [{ ...me(), me: true }], unread: unread.get(r.code) || 0 }));
+  return config.rooms.map((r) => ({ ...r, desk: r.code === config.desk, members: net ? net.members(r.code) : [{ ...me(), me: true }], unread: unread.get(r.code) || 0 }));
 }
 
 function pushRooms() {
@@ -92,6 +93,14 @@ function setActive(code) {
   pushRooms();
 }
 
+function setDesk(code) {
+  const room = findRoom(code);
+  if (!room) return;
+  config.desk = room.code;
+  saveConfig();
+  pushRooms();
+}
+
 // 예전 버전(방 1개) 설정을 방 목록 형식으로 바꾼다
 function migrate(c) {
   if (!c) return c;
@@ -102,6 +111,7 @@ function migrate(c) {
   }
   for (const r of c.rooms) r.cat = normalizeBreed(r.cat);
   if (!c.rooms.some((r) => r.code === c.active)) c.active = c.rooms[0]?.code;
+  if (!c.rooms.some((r) => r.code === c.desk)) c.desk = c.rooms[0]?.code;
   return c;
 }
 
@@ -227,6 +237,10 @@ function updateTray() {
       { label: petsHidden ? '펫 다시 보이기' : '펫 숨기기 (회의 모드)', accelerator: HIDE_SHORTCUT, click: togglePets },
       { label: '채팅 열기', click: () => openRoom(config.active) },
       {
+        label: '바탕화면 고양이',
+        submenu: config.rooms.map((r) => ({ label: r.name, type: 'radio', checked: r.code === config.desk, click: () => setDesk(r.code) })),
+      },
+      {
         label: '방 코드 복사',
         submenu: config.rooms.map((r) => ({ label: r.name, click: () => clipboard.writeText(r.code) })),
       },
@@ -270,7 +284,7 @@ ipcMain.handle('save-config', (_e, c) => {
     const v = validateRoom({ name: c.roomName, code: c.room, cat: animal }, false);
     if (v.error) return { ok: false, error: v.error };
     if (v.room.code.length < 4) return { ok: false, error: '방 코드는 4자 이상이어야 해요.' };
-    config = { id: crypto.randomUUID(), name, animal, rooms: [v.room], active: v.room.code };
+    config = { id: crypto.randomUUID(), name, animal, rooms: [v.room], active: v.room.code, desk: v.room.code };
     saveConfig();
     start();
     setupWin?.close();
@@ -313,6 +327,7 @@ ipcMain.handle('leave-room', (_e, code) => {
   net.removeRoom(room.code);
   unread.delete(room.code);
   if (config.active === room.code) config.active = config.rooms[0].code;
+  if (config.desk === room.code) config.desk = config.rooms[0].code;
   saveConfig();
   pushRooms();
   return { ok: true, active: config.active };
@@ -327,6 +342,7 @@ ipcMain.on('send-chat', (_e, code, text) => {
 });
 
 ipcMain.on('set-active', (_e, code) => setActive(code));
+ipcMain.on('set-desk', (_e, code) => setDesk(code));
 ipcMain.on('open-room', (_e, code) => openRoom(code));
 ipcMain.on('hide-chat', () => chatWin?.hide());
 ipcMain.on('copy-text', (_e, text) => clipboard.writeText(String(text)));

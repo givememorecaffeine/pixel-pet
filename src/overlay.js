@@ -1,4 +1,4 @@
-// 바탕화면 아래쪽을 돌아다니는 고양이들. 방 하나 = 고양이 한 마리
+// 바탕화면 오른쪽 아래에 앉아 있는 고양이. 고른 방(desk) 하나만 보이고, 다른 방 알림도 대신 전한다
 const { drawPet } = window.PixelSprites;
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -35,10 +35,17 @@ const rand = (a, b) => a + Math.random() * (b - a);
 // 화면 오른쪽 아래부터 만든 순서대로 앉힌다. 첫 번째 방이 가장 오른쪽, 새 방은 그 왼쪽으로.
 const homeX = (p) => W - MARGIN - (p.slot + 1) * SLOT + (SLOT - PW) / 2;
 
+let roomList = [];
+
 function syncRooms(rooms) {
-  const codes = new Set(rooms.map((r) => r.code));
+  roomList = rooms;
+  const shown = rooms.filter((r) => r.desk);
+  const codes = new Set(shown.map((r) => r.code));
   for (const code of pets.keys()) if (!codes.has(code)) pets.delete(code);
-  rooms.forEach((r, i) => {
+  // 숨긴 방까지 합친 안 읽은 수. 알림 말풍선은 그 방을 읽으면 사라진다
+  const total = rooms.reduce((n, r) => n + (r.unread || 0), 0);
+  const unreadOf = (code) => rooms.find((r) => r.code === code)?.unread || 0;
+  shown.forEach((r, i) => {
     let p = pets.get(r.code);
     if (!p) {
       p = { id: r.code, dir: -1, state: 'idle', until: 0, jumpAt: 0, bubble: null };
@@ -47,8 +54,8 @@ function syncRooms(rooms) {
     p.slot = i;
     p.name = r.name;
     p.animal = r.cat;
-    p.unread = r.unread;
-    if (!r.unread) p.bubble = null; // 그 방을 열어 읽으면 알림도 사라진다
+    p.unread = total;
+    if (p.bubble && !unreadOf(p.bubble.room)) p.bubble = null;
   });
   for (const p of pets.values()) if (p.x === undefined) p.x = homeX(p);
 }
@@ -66,10 +73,11 @@ function nextState(p, now) {
 
 // notify: 남이 보냈고, 지금 그 방을 보고 있지 않을 때만 main이 true로 보낸다
 function onChat({ room, notify }) {
-  const p = pets.get(room);
+  const p = pets.values().next().value; // 바탕화면 고양이가 모든 방 알림을 전한다
   if (!p || !notify) return;
   const now = performance.now();
-  p.bubble = { text: ALERT };
+  const name = room === p.id ? null : roomList.find((r) => r.code === room)?.name;
+  p.bubble = { text: name ? `${name}에 ${ALERT}` : ALERT, room };
   p.jumpAt = now;
   p.state = 'walk';
   p.walkFrom = now + 700; // 폴짝 뛴 다음 걷기 시작
@@ -266,7 +274,8 @@ function hit(x, y) {
   const order = [...pets.values()].sort((a, b) => (b.walking ? 1 : 0) - (a.walking ? 1 : 0));
   for (const p of order) {
     if (inside(p.closeBox, x, y)) return { p, close: true };
-    if (inside(p.box, x, y) || inside(p.bubbleBox, x, y)) return { p, close: false };
+    if (inside(p.bubbleBox, x, y)) return { p, close: false, bubble: true };
+    if (inside(p.box, x, y)) return { p, close: false };
   }
   return null;
 }
@@ -294,7 +303,8 @@ window.addEventListener('click', (e) => {
     return;
   }
   h.p.jumpAt = performance.now();
-  window.api.openRoom(h.p.id);
+  // 말풍선을 누르면 메시지가 온 방, 고양이를 누르면 고양이의 방
+  window.api.openRoom(h.bubble && h.p.bubble ? h.p.bubble.room : h.p.id);
 });
 
 window.api.onRooms(syncRooms);

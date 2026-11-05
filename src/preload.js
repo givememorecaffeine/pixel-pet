@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   leaveRoom: (code) => ipcRenderer.invoke('leave-room', code),
   sendChat: (code, text) => ipcRenderer.send('send-chat', code, text),
   setActive: (code) => ipcRenderer.send('set-active', code),
+  setDesk: (code) => ipcRenderer.send('set-desk', code),
   openRoom: (code) => ipcRenderer.send('open-room', code),
   hideChat: () => ipcRenderer.send('hide-chat'),
   copyText: (text) => ipcRenderer.send('copy-text', text),
